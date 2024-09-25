@@ -22,6 +22,7 @@ import platform
 import streamlit.components.v1 as components
 from loguru import logger
 from app.config import config
+from moviepy.editor import VideoFileClip
 
 st.set_page_config(
     page_title="NarratoAI",
@@ -70,6 +71,8 @@ if 'video_plot' not in st.session_state:
     st.session_state['video_plot'] = ''
 if 'ui_language' not in st.session_state:
     st.session_state['ui_language'] = config.ui.get("language", system_locale)
+if 'subclip_videos' not in st.session_state:
+    st.session_state['subclip_videos'] = {}
 
 
 def get_all_fonts():
@@ -362,13 +365,25 @@ with left_panel:
                     )
                     st.session_state['video_clip_json'] = script
                     cleaned_string = script.strip("```json").strip("```")
-                    st.session_state['video_script_list'] = json.loads(cleaned_string)
-                else:
-                    with open(video_json_file, 'r', encoding='utf-8') as f:
-                        script = f.read()
-                        st.session_state['video_clip_json'] = script
-                        cleaned_string = script.strip("```json").strip("```")
+                    try:
                         st.session_state['video_script_list'] = json.loads(cleaned_string)
+                    except json.JSONDecodeError as e:
+                        st.error(f"Error parsing JSON: {str(e)}")
+                        st.error("Please check the generated script for any formatting issues.")
+                        st.code(cleaned_string)  # Display the problematic JSON string
+                else:
+                    try:
+                        with open(video_json_file, 'r', encoding='utf-8') as f:
+                            script = f.read()
+                            st.session_state['video_clip_json'] = script
+                            cleaned_string = script.strip("```json").strip("```")
+                            st.session_state['video_script_list'] = json.loads(cleaned_string)
+                    except json.JSONDecodeError as e:
+                        st.error(f"Error parsing JSON from file: {str(e)}")
+                        st.error("Please check the JSON file for any formatting issues.")
+                        st.code(cleaned_string)  # Display the problematic JSON string
+                    except Exception as e:
+                        st.error(f"Error reading or processing the file: {str(e)}")
 
         video_clip_json_details = st.text_area(
             tr("Video Script"),
@@ -428,24 +443,52 @@ with left_panel:
             if st.session_state.get('video_script_list', None) is not None:
                 video_script_list = st.session_state.video_script_list
                 time_list = [i['timestamp'] for i in video_script_list]
-                subclip_videos = material.clip_videos(
-                    task_id=st.session_state['task_id'],
-                    timestamp_terms=time_list,
-                    origin_video=params.video_origin_path
-                )
-                if subclip_videos is None:
-                    st.error(tr("裁剪视频失败"))
+                
+                # 添加这些检查
+                if not params.video_origin_path:
+                    st.error(tr("未选择原始视频文件"))
+                    return
+                if not os.path.exists(params.video_origin_path):
+                    st.error(tr("选择的视频文件不存在"))
+                    return
+                
+                try:
+                    subclip_videos = material.clip_videos(
+                        task_id=st.session_state['task_id'],
+                        timestamp_terms=time_list,
+                        origin_video=params.video_origin_path
+                    )
+                    if subclip_videos is None or len(subclip_videos) == 0:
+                        st.error(tr("裁剪视频失败，没有生成有效的视频片段"))
+                        st.stop()
+                    st.session_state['subclip_videos'] = subclip_videos
+                    
+                    # 检查生成的视频片段尺寸
+                    with VideoFileClip(params.video_origin_path) as original_video:
+                        original_width, original_height = original_video.w, original_video.h
+                        is_portrait = original_height > original_width
+                    
+                    for timestamp, video_path in subclip_videos.items():
+                        with VideoFileClip(video_path) as clip:
+                            if (clip.h > clip.w) != is_portrait:
+                                st.warning(f"视频片段 {timestamp} 的方向与原始视频不匹配: {clip.w}x{clip.h}")
+                            elif clip.w != original_width or clip.h != original_height:
+                                st.warning(f"视频片段 {timestamp} 的尺寸与原始视频不匹配: {clip.w}x{clip.h} vs {original_width}x{original_height}")
+                            else:
+                                st.success(f"视频片段 {timestamp} 成功保持原始尺寸和方向: {clip.w}x{clip.h}")
+                    
+                    for video_script in video_script_list:
+                        if video_script['timestamp'] in subclip_videos:
+                            video_script['path'] = subclip_videos[video_script['timestamp']]
+                        else:
+                            st.warning(f"时间戳 {video_script['timestamp']} 的视频片段未生成")
+                    st.success(tr("视频裁剪完成"))
+                except Exception as e:
+                    st.error(f"裁剪视频时发生错误: {str(e)}")
+                    logger.exception("视频裁剪错误详情:")
                     st.stop()
-                st.session_state['subclip_videos'] = subclip_videos
-                for video_script in video_script_list:
-                    try:
-                        video_script['path'] = subclip_videos[video_script['timestamp']]
-                    except KeyError as e:
-                        st.error(f"裁剪视频失败")
-                # logger.debug(f"当前的脚本为：{st.session_state.video_script_list}")
             else:
                 st.error(tr("请先生成视频脚本"))
-
 
         with button_columns[1]:
             if st.button(tr("Crop Video"), key="auto_crop_video", use_container_width=True):
@@ -622,7 +665,7 @@ with middle_panel:
             options=range(len(bgm_options)),  # 使用索引作为内部选项值
             format_func=lambda x: bgm_options[x][0],  # 显示给用户的是标签
         )
-        # 获取选择的背景音乐类型
+        # 获取选择的背音乐类型
         params.bgm_type = bgm_options[selected_index][1]
 
         # 根据选择显示或隐藏组件
@@ -795,21 +838,35 @@ if start_button:
     logger.info(utils.to_json(params))
     scroll_to_bottom()
 
-    result = tm.start_subclip(task_id=task_id, params=params, subclip_path_videos=st.session_state.subclip_videos)
-
-    video_files = result.get("videos", [])
-    st.success(tr("视频生成完成"))
     try:
-        if video_files:
-            # 将视频播放器居中
-            player_cols = st.columns(len(video_files) * 2 + 1)
-            for i, url in enumerate(video_files):
-                player_cols[i * 2 + 1].video(url)
-    except Exception as e:
-        pass
+        subclip_videos = st.session_state.get('subclip_videos', {})
+        if not subclip_videos:
+            st.warning(tr("没有找到裁剪后的视频。请确保已经执行了视频裁剪步骤。"))
+            st.stop()
 
-    open_task_folder(task_id)
-    logger.info(tr("视频生成完成"))
+        result = tm.start_subclip(task_id=task_id, params=params, subclip_path_videos=subclip_videos)
+        
+        if result is None:
+            st.error(tr("视频生成失败。请检查 ImageMagick 是否正确安装和配置。"))
+            logger.error("start_subclip returned None. ImageMagick might not be available.")
+        else:
+            video_files = result.get("videos", [])
+            if video_files:
+                st.success(tr("视频生成完成"))
+                # 将视频播放器居中
+                player_cols = st.columns(len(video_files) * 2 + 1)
+                for i, url in enumerate(video_files):
+                    player_cols[i * 2 + 1].video(url)
+            else:
+                st.warning(tr("没有生成视频文件。请检查处理过程。"))
+            
+            open_task_folder(task_id)
+            logger.info(tr("视频生成完成"))
+    except Exception as e:
+        st.error(f"视频生成过程中发生错误: {str(e)}")
+        logger.error(f"Error during video generation: {str(e)}")
+        logger.exception("Full traceback:")
+
     scroll_to_bottom()
 
 config.save_config()

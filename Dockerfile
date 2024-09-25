@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y \
     imagemagick \
     ffmpeg \
     wget \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Fix security policy for ImageMagick
@@ -25,6 +27,9 @@ COPY requirements.txt ./
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install OpenCV
+RUN pip install opencv-python
 
 # Now copy the rest of the codebase into the image
 COPY . .

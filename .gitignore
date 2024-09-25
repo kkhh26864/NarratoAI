@@ -27,3 +27,5 @@ resource/scripts/*
 resource/videos/*
 resource/songs/*
 resource/fonts/*
+*.mp4
+*.mp3
