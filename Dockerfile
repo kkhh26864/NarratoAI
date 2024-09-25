@@ -31,6 +31,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Install OpenCV
 RUN pip install opencv-python
 
+RUN pip install google-generativeai
+
 # Now copy the rest of the codebase into the image
 COPY . .
 

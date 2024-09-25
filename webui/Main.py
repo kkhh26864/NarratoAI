@@ -357,20 +357,24 @@ with left_panel:
         if st.button(tr("Video Script Generate"), key="auto_generate_script"):
             with st.spinner(tr("Video Script Generate")):
                 if video_json_file == "" and params.video_origin_path != "":
-                    script = llm.gemini_video2json(
-                        video_origin_name=params.video_origin_path.split("\\")[-1],
-                        video_origin_path=params.video_origin_path,
-                        video_plot=video_plot,
-                        language=params.video_language,
-                    )
-                    st.session_state['video_clip_json'] = script
-                    cleaned_string = script.strip("```json").strip("```")
                     try:
-                        st.session_state['video_script_list'] = json.loads(cleaned_string)
-                    except json.JSONDecodeError as e:
-                        st.error(f"Error parsing JSON: {str(e)}")
-                        st.error("Please check the generated script for any formatting issues.")
-                        st.code(cleaned_string)  # Display the problematic JSON string
+                        script = llm.gemini_video2json(
+                            video_origin_name=params.video_origin_path.split("\\")[-1],
+                            video_origin_path=params.video_origin_path,
+                            video_plot=video_plot,
+                            language=params.video_language,
+                        )
+                        st.session_state['video_clip_json'] = script
+                        cleaned_string = script.strip("```json").strip("```")
+                        try:
+                            st.session_state['video_script_list'] = json.loads(cleaned_string)
+                        except json.JSONDecodeError as e:
+                            st.error(f"Error parsing JSON: {str(e)}")
+                            st.error("Please check the generated script for any formatting issues.")
+                            st.code(cleaned_string)  # Display the problematic JSON string
+                    except Exception as e:
+                        st.error(f"Error generating video script: {str(e)}")
+                        st.error("Please check your input and try again.")
                 else:
                     try:
                         with open(video_json_file, 'r', encoding='utf-8') as f:

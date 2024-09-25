@@ -2,7 +2,8 @@ import logging
 import re
 import json
 import traceback
-from typing import List
+from typing import List, Dict
+import os
 from loguru import logger
 from openai import OpenAI
 from openai import AzureOpenAI
@@ -388,62 +389,33 @@ Please note that you must use English for generating video search terms; Chinese
 
 
 def gemini_video2json(video_origin_name: str, video_origin_path: str, video_plot: str, language: str) -> str:
-    '''
-    使用 gemini-1.5-pro 进行影视解析
-    Args:
-        video_origin_name: str - 影视作品的原始名称
-        video_origin_path: str - 影视作品的原始路径
-        video_plot: str - 影视作品的简介或剧情概述
-
-    Return:
-        str - 解析后的 JSON 格式字符串
-    '''
     api_key = config.app.get("gemini_api_key")
     model_name = config.app.get("gemini_model_name")
 
+    if not api_key:
+        raise ValueError("Gemini API key is not set in the configuration.")
+
     gemini.configure(api_key=api_key)
-    model = gemini.GenerativeModel(model_name=model_name)
+    model = gemini.GenerativeModel(model_name)
 
     prompt = """
-# 角色设定：
-你是一位影视解说专家，擅长根据剧情描述视频的画面和故事生成一段有趣且吸引人的解说文案。你特别熟悉 tiktok/抖音 风格的影视解说文案创作。
+    # 角色设定：
+    你是一位影视解说专家，擅长根据剧情描述视频的画面和故事生成一段有趣且吸引人的解说文案。你特别熟悉 tiktok/抖音 风格的影视解说文案创作。
 
-# 任务目标：
-1.	根据给定的剧情描述，详细描述视频画面并展开叙述，尤其是对重要画面进行细致刻画。
-2.	生成风格符合 tiktok/抖音 的影视解说文案，使其节奏快、内容抓人。
-3.	最终结果以 JSON 格式输出，字段包含：
-  • "picture"：画面描述
-  • "timestamp"：时间戳（表示画面出现的时间-画面结束的时间）
-  • "narration"：对应的解说文案
+    # 任务目标：
+    1. 根据给定的剧情描述，详细描述视频画面并展开叙述，尤其是对重要画面进行细致刻画。
+    2. 生成风格符合 tiktok/抖音 的影视解说文案，使其节奏快、内容抓人。
+    3. 最终结果以 JSON 格式输出，字段包含：
+      • "picture"：画面描述
+      • "timestamp"：时间戳（表示画面出现的时间-画面结束的时间）
+      • "narration"：对应的解说文案
 
-# 输入示例：
-```text
-在一个黑暗的小巷中，主角缓慢走进，四周静谧无声，只有远处隐隐传来猫的叫声。突然，背后出现一个神秘的身影。
-```
-
-# 输出格式：
-```json
-[
-    {
-        "picture": "黑暗的小巷中，主角缓慢走进，四周静谧无声，远处有模糊的猫叫声。",
-        "timestamp": "00:00-00:17",
-        "narration": "昏暗的小巷里，他独自前行，空气中透着一丝不安，隐约中能听到远处的猫叫声。 "
-    },
-    {
-        "picture": "主角背后突然出现一个神秘的身影，气氛骤然紧张。",
-        "timestamp": "00:17-00:39",
-        "narration": "就在他以为安全时，一个身影悄无声息地出现在他身后，危险一步步逼近！ "
-    }
-    ...
-]
-```
-# 提示：
-  - 生成的解说文案应简洁有力，符合短视频平台用户的偏好。
-  - 叙述中应有强烈的代入感和悬念，以吸引观众持续观看。
-  - 文案语言为：%s
-  - 剧情内容如下：%s (若为空则忽略)
-  
-""" % (language, video_plot)
+    # 提示：
+      - 生成的解说文案应简洁有力，符合短视频平台用户的偏好。
+      - 叙述中应有强烈的代入感和悬念，以吸引观众持续观看。
+      - 文案语言为：{language}
+      - 剧情内容如下：{video_plot} (若为空则忽略)
+    """.format(language=language, video_plot=video_plot)
 
     logger.debug(f"视频名称: {video_origin_name}")
     try:
@@ -455,29 +427,36 @@ def gemini_video2json(video_origin_name: str, video_origin_path: str, video_plot
             gemini_video_file = gemini.get_file(gemini_video_file.name)
             logger.debug(f"视频当前状态(ACTIVE才可用): {gemini_video_file.state.name}")
         if gemini_video_file.state.name == "FAILED":
-            raise ValueError(gemini_video_file.state.name)
+            raise ValueError(f"Video processing failed: {gemini_video_file.state.name}")
     except Exception as err:
         logger.error(f"上传视频至 Google cloud 失败, 请检查 VPN 配置和 APIKey 是否正确 \n{traceback.format_exc()}")
         raise TimeoutError(f"上传视频至 Google cloud 失败, 请检查 VPN 配置和 APIKey 是否正确; {err}")
 
-    streams = model.generate_content([prompt, gemini_video_file], stream=True)
-    response = []
-    for chunk in streams:
-        response.append(chunk.text)
+    try:
+        streams = model.generate_content([prompt, gemini_video_file], stream=True)
+        response = []
+        for chunk in streams:
+            response.append(chunk.text)
 
-    response = "".join(response)
-    logger.success(f"llm response: \n{response}")
+        response = "".join(response)
+        logger.success(f"llm response: \n{response}")
 
-    return response
+        return response
+    except gemini.types.generation_types.BlockedPromptException as e:
+        logger.error(f"Gemini AI blocked the prompt: {str(e)}")
+        raise ValueError("The input was blocked by Gemini AI. Please check your content and try again.")
+    except Exception as e:
+        logger.error(f"Error in gemini_video2json: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":
     video_subject = "摔跤吧！爸爸 Dangal"
     video_path = "/NarratoAI/resource/videos/test.mp4"
     video_plot = '''
-马哈维亚（阿米尔·汗 Aamir Khan 饰）曾经是一名前途无量的摔跤运动员，在放弃了职业生涯后，他最大的遗憾就是没有能够替国家赢得金牌。马哈维亚将这份希望寄托在了尚未出生的儿子身上，哪知道妻子接连给他生了两个女儿，取名吉塔（法缇玛·萨那·纱卡 Fatima Sana Shaikh 饰）和巴比塔（桑亚·玛荷塔 Sanya Malhotra 饰）。让马哈维亚没有想到的是，两个姑娘展现出了杰出的摔跤天赋，让他幡然醒悟，就算是女孩，也能够昂首挺胸的站在比赛场上，为了国家和她们自己赢得荣誉。
-就这样，在马哈维亚的指导下，吉塔和巴比塔开始了艰苦的训练，两人进步神速，很快就因为在比赛中连连获胜而成为了当地的名人。为了获得更多的机会，吉塔进入了国家体育学院学习，在那里，她将面对更大的诱惑和更多的选择。
-'''
+    马哈维亚（阿米尔·汗 Aamir Khan 饰）曾经是一名前途无量的摔跤运动员，在放弃了职业生涯后，他最大的遗憾就是没有能够替国家赢得金牌。马哈维亚将这份希望寄托在了尚未出生的儿子身上，哪知道妻子接连给他生了两个女儿，取名吉塔（法缇玛·萨那·纱卡 Fatima Sana Shaikh 饰）和巴比塔（桑亚·玛荷塔 Sanya Malhotra 饰）。让马哈维亚没有想到的是，两个姑娘展现出了杰出的摔跤天赋，让他幡然醒悟，就算是女孩，也能够昂首挺胸的站在比赛场上，为了国家和她们自己赢得荣誉。
+    就这样，在马哈维亚的指导下，吉塔和巴比塔开始了艰苦的训练，两人进步神速，很快就因为在比赛中连连获胜而成为了当地的名人。为了获得更多的机会，吉塔进入了国家体育学院学习，在那里，她将面对更大的诱惑和更多的选择。
+    '''
     language = "zh-CN"
     res = gemini_video2json(video_subject, video_path, video_plot, language)
     print(res)
@@ -493,38 +472,3 @@ if __name__ == "__main__":
     # )
     # print("######################")
     # print(search_terms)
-    #     prompt = """
-    # # Role: 影视解说专家
-    #
-    # ## Background:
-    # 擅长根据剧情描述视频的画面和故事，能够生成一段非常有趣的解说文案。
-    #
-    # ## Goals:
-    # 1. 根据剧情描述视频的画面和故事，并对重要的画面进行展开叙述
-    # 2. 根据剧情内容，生成符合 tiktok/抖音 风格的影视解说文案
-    # 3. 将结果直接以json格式输出给用户，需要包含字段： picture 画面描述， timestamp 时间戳， narration 解说文案
-    # 4. 剧情内容如下：{%s}
-    #
-    # ## Skills
-    # - 精通 tiktok/抖音 等短视频影视解说文案撰写
-    # - 能够理解视频中的故事和画面表现
-    # - 能精准匹配视频中的画面和时间戳
-    # - 能精准把控旁白和时长
-    # - 精通中文
-    # - 精通JSON数据格式
-    #
-    # ## Constrains
-    # - 解说文案的时长要和时间戳的时长尽量匹配
-    # - 忽略视频中关于广告的内容
-    # - 忽略视频中片头和片尾
-    # - 不得在脚本中包含任何类型的 Markdown 或格式
-    #
-    # ## Format
-    # - 对应JSON的key为：picture， timestamp， narration
-    #
-    # # Initialization:
-    # - video subject: {video_subject}
-    # - number of paragraphs: {paragraph_number}
-    # """.strip()
-    #     if language:
-    #         prompt += f"\n- language: {language}"
