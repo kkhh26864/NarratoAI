@@ -68,7 +68,7 @@
     azure_api_version = "2024-02-15-preview"
 
     ########## Gemini API Key
-    gemini_api_key=""
+    gemini_api_key="AIzaSyCjS2LKjoN9-PGuoCa1VLWIVzhW-eu_EDY"
     gemini_model_name = "gemini-1.5-flash"
 
     ########## Qwen API Key
