@@ -177,27 +177,9 @@ sudo yum install ImageMagick
 streamlit run ./webui/Main.py --browser.serverAddress=127.0.0.1 --server.enableCORS=True --browser.gatherUsageStats=False
 ```
 4. Access http://127.0.0.1:8501
+ 
+ 
 
-## Feedback & Suggestions 📢
-
-### 👏 1. You can submit [issues](https://github.com/linyqh/NarratoAI/issues) or [pull requests](https://github.com/linyqh/NarratoAI/pulls) 
-
-### 💬 2. [Join the open source community exchange group]((https://github.com/linyqh/NarratoAI/wiki))
-
-### 👉 3. [frequently asked questions](https://thread-marsupial-df8.notion.site/105866888dab80988650fa063b1df4eb)
-
-## Reference Projects 📚
-- https://github.com/FujiwaraChoki/MoneyPrinter
-- https://github.com/harry0703/MoneyPrinterTurbo
-
-This project was refactored based on the above projects with the addition of video narration features. Thanks to the original authors for their open-source spirit 🥳🥳🥳 
-
-## License 📝
-
-Click to view the [`LICENSE`](LICENSE) file
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=linyqh/NarratoAI&type=Date)](https://star-history.com/#linyqh/NarratoAI&Date)
+ 
 
 

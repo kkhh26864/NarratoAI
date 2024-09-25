@@ -30,12 +30,11 @@ NarratoAI 是一个自动化影视解说工具，基于LLM实现文案撰写、�
 
 </div>
 
-## 未来计划 🥳
-- [x] windows 整合包发布
-- [ ] 优化剧情生成流程，提升生成效果
-- [ ] 支持本地大模型 MiniCPM-V
-- [ ] 支持本地大模型 Qwen2-VL
-- [ ] ...
+## 修复问题
+- 修复了一些bug
+- 修复了上传的竖屏视频被转成了横屏视频的问题
+- 替换了里面的视频编辑库
+ 
 
 ## 配置要求 📦
 
@@ -166,32 +165,7 @@ streamlit run ./webui/Main.py --browser.serverAddress=127.0.0.1 --server.enableC
 ```
 4. 访问 http://127.0.0.1:8501
 
+ 
 
-## 反馈建议 📢
-
-### 👏 1. 可以提交 [issue](https://github.com/linyqh/NarratoAI/issues)或者 [pull request](https://github.com/linyqh/NarratoAI/pulls)
-
-### 💬 2. [加入开源社区交流群](https://github.com/linyqh/NarratoAI/wiki)
-
-### 👉 3. [常见问题](https://thread-marsupial-df8.notion.site/105866888dab80988650fa063b1df4eb)
-
-## 参考项目 📚
-- https://github.com/FujiwaraChoki/MoneyPrinter
-- https://github.com/harry0703/MoneyPrinterTurbo
-
-该项目基于以上项目重构而来，增加了影视解说功能，感谢大佬的开源精神 🥳🥳🥳 
-
-## 请作者喝一杯咖啡 ☕️
-<div style="display: flex; justify-content: space-between;">
-  <img src="https://github.com/user-attachments/assets/5038ccfb-addf-4db1-9966-99415989fd0c" alt="Image 1" style="width: 350px; height: 350px; margin: auto;"/>
-  <img src="https://github.com/user-attachments/assets/07d4fd58-02f0-425c-8b59-2ab94b4f09f8" alt="Image 2" style="width: 350px; height: 350px; margin: auto;"/>
-</div>
-
-## 许可证 📝
-
-点击查看 [`LICENSE`](LICENSE) 文件
-
-## Star History
-
-[![Star History Chart](https://api.star-history.com/svg?repos=linyqh/NarratoAI&type=Date)](https://star-history.com/#linyqh/NarratoAI&Date)
+ 
 
