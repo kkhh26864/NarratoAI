@@ -195,3 +195,8 @@ Click to view the [`LICENSE`](LICENSE) file
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=linyqh/NarratoAI&type=Date)](https://star-history.com/#linyqh/NarratoAI&Date)
+
+## 修复问题
+- 修复了一些bug
+- 修复了上传的竖屏视频被转成了横屏视频的问题
+- 替换了里面的视频编辑库
