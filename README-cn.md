@@ -3,6 +3,10 @@
 <h1 align="center" style="font-size: 2cm;"> NarratoAI 😎📽️ </h1>
 <h3 align="center">An all-in-one AI-powered tool for film commentary and automated video editing.🎬🎞️ </h3>
 
+## 修复问题
+- 修复了一些bug
+- 修复了上传的竖屏视频被转成了横屏视频的问题
+- 替换了里面的视频编辑库
 
 <h3>📖 English | <a href="README.md">简体中文</a> </h3>
 <div align="center">
@@ -196,7 +200,4 @@ Click to view the [`LICENSE`](LICENSE) file
 
 [![Star History Chart](https://api.star-history.com/svg?repos=linyqh/NarratoAI&type=Date)](https://star-history.com/#linyqh/NarratoAI&Date)
 
-## 修复问题
-- 修复了一些bug
-- 修复了上传的竖屏视频被转成了横屏视频的问题
-- 替换了里面的视频编辑库
+
