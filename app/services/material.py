@@ -47,8 +47,7 @@ def clip_videos(task_id: str, timestamp_terms: List[str], origin_video: str) -> 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         duration = total_frames / fps
 
-        is_portrait = original_height > original_width
-        logger.info(f"Original video dimensions: {original_width}x{original_height}, Is portrait: {is_portrait}, Duration: {duration}")
+        logger.info(f"Original video dimensions: {original_width}x{original_height}, Duration: {duration}")
 
         # 读取音频
         with VideoFileClip(origin_video) as video:
@@ -80,7 +79,7 @@ def clip_videos(task_id: str, timestamp_terms: List[str], origin_video: str) -> 
                 
                 logger.info(f"Clipping video: {timestamp}, frames: {start_frame}-{end_frame}")
 
-                # 使用 OpenCV 读取帧并写入新视频
+                # 使用 OpenCV 裁剪视频
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
                 out = cv2.VideoWriter(clip_path, fourcc, fps, (original_width, original_height))
 
@@ -93,13 +92,19 @@ def clip_videos(task_id: str, timestamp_terms: List[str], origin_video: str) -> 
 
                 out.release()
 
-                # 添加音频（如果存在）
+                # 如果有音频，使用 moviepy 添加音频
                 if audio is not None:
                     try:
                         video_clip = VideoFileClip(clip_path)
                         audio_clip = audio.subclip(start_time, end_time)
                         final_clip = video_clip.set_audio(audio_clip)
-                        final_clip.write_videofile(clip_path, codec="libx264", audio_codec="aac")
+                        
+                        # 确保输出视频保持原始尺寸
+                        final_clip = final_clip.resize(width=original_width, height=original_height)
+                        
+                        # 使用 ffmpeg-python 来避免尺寸改变
+                        final_clip.write_videofile(clip_path, codec="libx264", audio_codec="aac",
+                                                   ffmpeg_params=["-vf", f"scale={original_width}:{original_height}"])
                         video_clip.close()
                         final_clip.close()
                     except Exception as audio_error:
