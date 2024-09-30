@@ -53,7 +53,7 @@ def clip_videos(task_id: str, timestamp_terms: List[str], origin_video: str) -> 
         with VideoFileClip(origin_video) as video:
             audio = video.audio if video.audio is not None else None
             if audio is None:
-                logger.warning("No audio track found in the video.")
+                logger.warning("视频中没有找到音轨。")
 
         for timestamp in timestamp_terms:
             try:
@@ -96,32 +96,43 @@ def clip_videos(task_id: str, timestamp_terms: List[str], origin_video: str) -> 
                 if audio is not None:
                     try:
                         video_clip = VideoFileClip(clip_path)
-                        audio_clip = audio.subclip(start_time, end_time)
-                        final_clip = video_clip.set_audio(audio_clip)
+                        audio_clip = None
+                        try:
+                            audio_clip = audio.subclip(start_time, end_time)
+                        except Exception as audio_subclip_error:
+                            logger.error(f"创建音频子剪辑时出错: {str(audio_subclip_error)}")
                         
-                        # 确保输出视频保持原始尺寸
-                        final_clip = final_clip.resize(width=original_width, height=original_height)
+                        if audio_clip is not None and audio_clip.duration > 0:
+                            final_clip = video_clip.set_audio(audio_clip)
+                            
+                            # 确保输出视频保持原始尺寸
+                            final_clip = final_clip.resize(width=original_width, height=original_height)
+                            
+                            # 使用 ffmpeg-python 来避免尺寸改变
+                            final_clip.write_videofile(clip_path, codec="libx264", audio_codec="aac",
+                                                       ffmpeg_params=["-vf", f"scale={original_width}:{original_height}"])
+                            final_clip.close()
+                        else:
+                            logger.warning(f"时间戳 {timestamp} 的音频剪辑无效。跳过音频添加。")
                         
-                        # 使用 ffmpeg-python 来避免尺寸改变
-                        final_clip.write_videofile(clip_path, codec="libx264", audio_codec="aac",
-                                                   ffmpeg_params=["-vf", f"scale={original_width}:{original_height}"])
                         video_clip.close()
-                        final_clip.close()
                     except Exception as audio_error:
-                        logger.error(f"Error adding audio to clip: {str(audio_error)}")
-                        logger.info("Continuing without audio.")
+                        logger.error(f"向剪辑添加音频时出错: {str(audio_error)}")
+                        logger.info("继续处理，但不添加音频。")
+                else:
+                    logger.info("没有可用的音轨。继续处理，但不添加音频。")
 
                 video_paths[timestamp] = clip_path
-                logger.info(f"Successfully clipped video for timestamp {timestamp}: {clip_path}")
+                logger.info(f"成功为时间戳 {timestamp} 剪辑视频: {clip_path}")
             
             except Exception as e:
-                logger.error(f"Error clipping video for timestamp {timestamp}: {str(e)}")
+                logger.error(f"为时间戳 {timestamp} 剪辑视频时出错: {str(e)}")
                 continue
 
         cap.release()
 
     except Exception as e:
-        logger.error(f"Error processing the original video file: {str(e)}")
+        logger.error(f"处理原始视频文件时出错: {str(e)}")
         return {}
 
     return video_paths

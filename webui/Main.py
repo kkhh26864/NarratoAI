@@ -430,7 +430,7 @@ with left_panel:
                         if not required_keys.issubset(item.keys()):
                             raise ValueError("Dict 元素不包含必需的键")
 
-                    # 存储为新的 JSON 文件
+                    # 存��为新的 JSON 文件
                     with open(save_path, 'w', encoding='utf-8') as file:
                         json.dump(data, file, ensure_ascii=False, indent=4)
                         # 将data的值存储到 session_state 中，类似缓存
@@ -776,10 +776,10 @@ with st.expander(tr("Video Check"), expanded=False):
                         # 可编辑的输入框
                         text_panels = st.columns(2)
                         with text_panels[0]:
-                            text1 = st.text_area(tr("timestamp"), value=initial_timestamp, height=20)
+                            text1 = st.text_area(tr("timestamp"), value=initial_timestamp, height=20, key=f"timestamp_{index}")
                         with text_panels[1]:
-                            text2 = st.text_area(tr("Picture description"), value=initial_picture, height=20)
-                        text3 = st.text_area(tr("Narration"), value=initial_narration, height=100)
+                            text2 = st.text_area(tr("Picture description"), value=initial_picture, height=20, key=f"picture_{index}")
+                        text3 = st.text_area(tr("Narration"), value=initial_narration, height=100, key=f"narration_{index}")
 
                         # 重新生成按钮
                         if st.button(tr("Rebuild"), key=f"button_{index}"):
