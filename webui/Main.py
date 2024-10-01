@@ -404,39 +404,40 @@ with left_panel:
 
                 with st.spinner(tr("Save Script")):
                     script_dir = utils.script_dir()
-                    # 获取当前时间戳，形如 2024-0618-171820
                     timestamp = datetime.datetime.now().strftime("%Y-%m%d-%H%M%S")
                     save_path = os.path.join(script_dir, f"{timestamp}.json")
 
-                    # 尝试解析输入的 JSON 数据
                     input_json = str(video_clip_json_details)
-                    # 去掉json的头尾标识
                     input_json = input_json.strip('```json').strip('```')
                     try:
                         data = json.loads(input_json)
-                    except Exception as err:
-                        raise ValueError(
-                            f"视频脚本格式错误，请检查脚本是否符合 JSON 格式；{err} \n\n{traceback.format_exc()}")
+                    except json.JSONDecodeError as err:
+                        st.error(f"JSON 格式错误: {err}")
+                        st.code(input_json)  # Display the problematic JSON
+                        st.error("请检查 JSON 格式，确保所有属性名都用双引号括起来，并且没有多余的逗号。")
+                        st.stop()
 
-                    # 检查是否是一个列表
+                    # Check if it's a list
                     if not isinstance(data, list):
-                        raise ValueError("JSON is not a list")
+                        st.error("JSON 不是一个列表")
+                        st.stop()
 
-                    # 检查列表中的每个元素是否包含所需的键
+                    # Check each element in the list
                     required_keys = {"picture", "timestamp", "narration"}
-                    for item in data:
+                    for i, item in enumerate(data):
                         if not isinstance(item, dict):
-                            raise ValueError("List 元素不是字典")
+                            st.error(f"列表中的第 {i+1} 个元素不是字典")
+                            st.stop()
                         if not required_keys.issubset(item.keys()):
-                            raise ValueError("Dict 元素不包含必需的键")
+                            st.error(f"第 {i+1} 个元素缺少必需的键: {required_keys - set(item.keys())}")
+                            st.stop()
 
-                    # 存��为新的 JSON 文件
+                    # Save as new JSON file
                     with open(save_path, 'w', encoding='utf-8') as file:
                         json.dump(data, file, ensure_ascii=False, indent=4)
-                        # 将data的值存储到 session_state 中，类似缓存
                         st.session_state['video_script_list'] = data
                         st.session_state['video_clip_json_path'] = save_path
-                        # 刷新页面
+                        st.success(f"脚本已保存到 {save_path}")
                         st.rerun()
 
 
