@@ -325,7 +325,7 @@ def start(task_id, params: VideoParams, stop_at: str = "video"):
     return kwargs
 
 
-def start_subclip(task_id, params: VideoClipParams, subclip_path_videos):
+def start_subclip(task_id: str, params: VideoClipParams, subclip_path_videos: dict):
     """
     后台任务（自动剪辑视频进行剪辑）
     """
@@ -398,11 +398,13 @@ def start_subclip(task_id, params: VideoClipParams, subclip_path_videos):
     sm.state.update_task(task_id, state=const.TASK_STATE_PROCESSING, progress=40)
 
     logger.info("\n\n## 4. 裁剪视频")
-    subclip_videos = [x for x in subclip_path_videos.values()]
-    # subclip_videos = material.clip_videos(task_id=task_id,
-    #                                          timestamp_terms=time_list,
-    #                                          origin_video=params.video_origin_path
-    #                                          )
+    subclip_videos = material.clip_videos(
+        task_id=task_id,
+        timestamp_terms=time_list,
+        origin_video=params.video_origin_path,
+        max_clip_duration=params.video_clip_duration,
+        total_duration=audio_duration
+    )
     logger.debug(f"\n\n## 裁剪后的视频文件列表: \n{subclip_videos}")
 
     if not subclip_videos:
@@ -421,12 +423,18 @@ def start_subclip(task_id, params: VideoClipParams, subclip_path_videos):
         index = i + 1
         combined_video_path = path.join(utils.task_dir(task_id), f"combined-{index}.mp4")
         logger.info(f"\n\n## 5. 合并视频: {index} => {combined_video_path}")
-        video.combine_clip_videos(combined_video_path=combined_video_path,
-                             video_paths=subclip_videos,
-                             video_script_list=video_list,
-                             audio_file=audio_file,
-                             video_aspect=params.video_aspect,
-                             threads=n_threads)
+        try:
+            combined_video = material.combine_clip_videos(
+                task_id=task_id,
+                clip_videos=subclip_videos,
+                output_path=combined_video_path
+            )
+            if combined_video is None:
+                raise Exception("Failed to combine video clips")
+        except Exception as e:
+            logger.error(f"Error combining videos: {str(e)}")
+            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
+            return None
 
         _progress += 50 / params.video_count / 2
         sm.state.update_task(task_id, progress=_progress)
@@ -435,12 +443,17 @@ def start_subclip(task_id, params: VideoClipParams, subclip_path_videos):
 
         logger.info(f"\n\n## 6. 最后一步: {index} => {final_video_path}")
         # 把所有东西合到在一起
-        video.generate_video(video_path=combined_video_path,
-                             audio_path=audio_file,
-                             subtitle_path=subtitle_path,
-                             output_file=final_video_path,
-                             params=params,
-                             )
+        try:
+            video.generate_video(video_path=combined_video_path,
+                                 audio_path=audio_file,
+                                 subtitle_path=subtitle_path,
+                                 output_file=final_video_path,
+                                 params=params,
+                                 )
+        except Exception as e:
+            logger.error(f"Error generating final video: {str(e)}")
+            sm.state.update_task(task_id, state=const.TASK_STATE_FAILED)
+            return None
 
         _progress += 50 / params.video_count / 2
         sm.state.update_task(task_id, progress=_progress)

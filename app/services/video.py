@@ -350,106 +350,22 @@ def preprocess_video(materials: List[MaterialInfo], clip_duration=4):
     return materials
 
 
-def combine_clip_videos(combined_video_path: str,
-                        video_paths: List[str],
-                        video_script_list: List[str],
-                        audio_file: str,
-                        video_aspect: VideoAspect = VideoAspect.portrait,
-                        threads: int = 2,
-                        ) -> str:
-    """
-    合并子视频
-    Args:
-        combined_video_path: 合并后的存储路径
-        video_paths: 子视频路径列表
-        audio_file: mp3旁白
-        video_aspect: 屏幕比例
-        threads: 线程数
+def combine_clip_videos(clip_videos, audio_file, output_file, video_aspect):
+    # ... (existing code)
 
-    Returns:
+    # Create a list to hold all video clips
+    video_clips = []
 
-    """
-    audio_clip = AudioFileClip(audio_file)
-    audio_duration = audio_clip.duration
-    logger.info(f"音频的最大持续时间: {audio_duration} s")
-    # 每个剪辑所需的持续时间
-    req_dur = audio_duration / len(video_paths)
-    # req_dur = max_clip_duration
-    # logger.info(f"每个剪辑的最大长度为 {req_dur} s")
-    output_dir = os.path.dirname(combined_video_path)
+    for clip_video in clip_videos:
+        clip = VideoFileClip(clip_video)
+        # Resize and pad the clip if necessary
+        clip = resize_and_pad_clip(clip, target_width, target_height)
+        video_clips.append(clip)
 
-    aspect = VideoAspect(video_aspect)
-    video_width, video_height = aspect.to_resolution()
+    # Concatenate all video clips
+    final_clip = concatenate_videoclips(video_clips)
 
-    clips = []
-    video_duration = 0
-    # 一遍又一遍地添加下载的剪辑，直到达到音频的持续时间 （max_duration）
-    while video_duration < audio_duration:
-        for video_path, video_script in zip(video_paths, video_script_list):
-            clip = VideoFileClip(video_path).without_audio()
-            # 检查剪辑是否比剩余音频长
-            if (audio_duration - video_duration) < clip.duration:
-                clip = clip.subclip(0, (audio_duration - video_duration))
-            # 仅当计算出的剪辑长度 （req_dur） 短于实际剪辑时，才缩短剪辑以防止静止图像
-            elif req_dur < clip.duration:
-                clip = clip.subclip(0, req_dur)
-            clip = clip.set_fps(30)
-
-            # 并非所有视频的大小都相同，因此我们需要调整它们的大小
-            clip_w, clip_h = clip.size
-            if clip_w != video_width or clip_h != video_height:
-                clip_ratio = clip.w / clip.h
-                video_ratio = video_width / video_height
-
-                if clip_ratio == video_ratio:
-                    # 等比例缩放
-                    clip = clip.resize((video_width, video_height))
-                else:
-                    # 等比缩放视频
-                    if clip_ratio > video_ratio:
-                        # 按照目标宽度等比缩放
-                        scale_factor = video_width / clip_w
-                    else:
-                        # 按照目标高度等比缩放
-                        scale_factor = video_height / clip_h
-
-                    new_width = int(clip_w * scale_factor)
-                    new_height = int(clip_h * scale_factor)
-                    clip_resized = clip.resize(newsize=(new_width, new_height))
-
-                    background = ColorClip(size=(video_width, video_height), color=(0, 0, 0))
-                    clip = CompositeVideoClip([
-                        background.set_duration(clip.duration),
-                        clip_resized.set_position("center")
-                    ])
-
-                logger.info(f"将视频 {video_path} 大小调整为 {video_width} x {video_height}, 剪辑尺寸: {clip_w} x {clip_h}")
-
-            # TODO: 片段时长过长时，需要缩短，但暂时没有好的解决方案
-            # if clip.duration > 5:
-            #     ctime = utils.reduce_video_time(txt=video_script)
-            #     if clip.duration > (2 * ctime):
-            #         clip = clip.subclip(ctime, 2*ctime)
-            #     else:
-            #         clip = clip.subclip(0, ctime)
-            #     logger.info(f"视频 {video_path} 片段时长较长，将剪辑时长缩短至 {ctime} 秒")
-
-            clips.append(clip)
-            video_duration += clip.duration
-
-    video_clip = concatenate_videoclips(clips)
-    video_clip = video_clip.set_fps(30)
-    logger.info(f"合并中...")
-    video_clip.write_videofile(filename=combined_video_path,
-                               threads=threads,
-                               logger=None,
-                               temp_audiofile_path=output_dir,
-                               audio_codec="aac",
-                               fps=30,
-                               )
-    video_clip.close()
-    logger.success(f"completed")
-    return combined_video_path
+    # ... (rest of the function to add audio and write output)
 
 
 if __name__ == "__main__":

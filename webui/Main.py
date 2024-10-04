@@ -773,13 +773,13 @@ with st.expander(tr("Video Check"), expanded=False):
                             video_bytes = video_file.read()
                             st.video(video_bytes)
 
-                        # 可编辑的输入框
+                        # Add unique keys to each text_area
                         text_panels = st.columns(2)
                         with text_panels[0]:
-                            text1 = st.text_area(tr("timestamp"), value=initial_timestamp, height=20)
+                            text1 = st.text_area(tr("timestamp"), value=initial_timestamp, height=20, key=f"timestamp_{index}")
                         with text_panels[1]:
-                            text2 = st.text_area(tr("Picture description"), value=initial_picture, height=20)
-                        text3 = st.text_area(tr("Narration"), value=initial_narration, height=100)
+                            text2 = st.text_area(tr("Picture description"), value=initial_picture, height=20, key=f"picture_{index}")
+                        text3 = st.text_area(tr("Narration"), value=initial_narration, height=100, key=f"narration_{index}")
 
                         # 重新生成按钮
                         if st.button(tr("Rebuild"), key=f"button_{index}"):
